@@ -27,10 +27,6 @@ public:
         return data->size();
     }
 
-    explicit operator bool() const {
-        return true;
-    }
-
     DynamicArray<T> slice(size_t start) {
         DynamicArray<T> result;
         result.data = std::make_shared<std::vector<T>>(this->data->begin() + start, this->data->end());
