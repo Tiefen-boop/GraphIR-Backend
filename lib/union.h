@@ -25,7 +25,7 @@ double operator+(Undefined, const T&) {
     return NAN;
 }
 
-double operator+(Undefined, Undefined) {
+inline double operator+(Undefined, Undefined) {
     return NAN;
 }
 
@@ -39,7 +39,7 @@ double operator*(Undefined, const T&) {
     return NAN;
 }
 
-double operator*(Undefined, Undefined) {
+inline double operator*(Undefined, Undefined) {
     return NAN;
 }
 
@@ -296,11 +296,11 @@ bool operator==(const T&, const Undefined&) {
     return false;
 }
 
-bool operator==(double n, const std::string& s) {
+inline bool operator==(double n, const std::string& s) {
     return s == std::to_string(n);
 }
 
-bool operator==(const std::string& s, double n) {
+inline bool operator==(const std::string& s, double n) {
     return n == s;
 }
 
@@ -367,7 +367,7 @@ bool operator>(const T& lhs, const S& rhs) {
     return rhs < lhs;
 }
 
-std::ostream& operator<<(std::ostream& os, const Undefined&) {
+inline std::ostream& operator<<(std::ostream& os, const Undefined&) {
     return os << "undefined";
 }
 
