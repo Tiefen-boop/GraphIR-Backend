@@ -215,8 +215,10 @@ public:
     }
 
     using ElementType = GetElementTypes<Types...>;
-    ElementType operator[](size_t index) {
-        return std::visit([index](auto& arg) -> ElementType {
+    // DynamicArray uses shared_ptr internally, so elements stay mutable through a const Union
+    // (reference semantics — the handle is const, not the pointed-to data).
+    ElementType operator[](size_t index) const {
+        return std::visit([index](const auto& arg) -> ElementType {
             using T = std::decay_t<decltype(arg)>;
             if constexpr (IsDynamicArray<T>::value || std::is_same_v<T, std::string>) {
                 return arg[index];
@@ -235,8 +237,8 @@ public:
         }, value);
     }
 
-    size_t size() {
-        return std::visit([](auto& arg) -> size_t {
+    size_t size() const {
+        return std::visit([](const auto& arg) -> size_t {
             using T = std::decay_t<decltype(arg)>;
             if constexpr (IsDynamicArray<T>::value || std::is_same_v<T, std::string>) {
                 return arg.size();

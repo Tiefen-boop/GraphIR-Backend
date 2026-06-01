@@ -25,14 +25,17 @@ export function generateCpp(graph: ir.Graph, config?: BackendConfig): string {
         const subfunction_type = (irTypeToCppType(subgraph.verifiedType!) as cppType.FunctionType);
         const subfunction_name = (subgraph.getStartVertex().inEdges[0].source as ir.StaticSymbolVertex).name;
 
-        const subfunction_declaration = new decl.FuncDecl(subfunction_type.returnType, subfunction_name, subfunction_type.parameters);
+        const paramTypes = subfunction_type.parameters.map((t, i) =>
+            config!.constRefParams.get(subfunction_name)?.has(i) ? new cppType.ConstRefType(t) : t
+        );
+        const subfunction_declaration = new decl.FuncDecl(subfunction_type.returnType, subfunction_name, paramTypes);
         out += subfunction_declaration.toString() + '\n';
     }
 
     out += '\n';
 
     for (const subgraph of graph.subgraphs) {
-        out += generateCpp(subgraph);
+        out += generateCpp(subgraph, config);
     }
     let function_name;
     if (graph.getStartVertex().inEdges.length > 0) {
@@ -42,7 +45,10 @@ export function generateCpp(graph: ir.Graph, config?: BackendConfig): string {
         function_name = 'main';
     }
     const function_type = (irTypeToCppType(graph.verifiedType!) as cppType.FunctionType);
-    const parameters = function_type.parameters.map((t, i) => new decl.ParamDecl(t, `p${i}`));
+    const parameters = function_type.parameters.map((t, i) => {
+        const type = config!.constRefParams.get(function_name)?.has(i) ? new cppType.ConstRefType(t) : t;
+        return new decl.ParamDecl(type, `p${i}`);
+    });
     const cpp_function = new decl.FuncDefDecl(function_type.returnType, function_name, parameters, new stmt.BlockStmt([]));
     const names = allocateCppNames(graph);
 

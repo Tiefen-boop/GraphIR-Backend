@@ -23,6 +23,11 @@ public:
         return (*data)[i];
     }
 
+    // Const overload — no auto-resize; the caller must ensure the index is valid.
+    T& operator[](size_t i) const {
+        return (*data)[i];
+    }
+
     size_t size() const {
         return data->size();
     }

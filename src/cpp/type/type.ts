@@ -113,6 +113,16 @@ class RefereceType extends Type {
     }
 }
 
+class ConstRefType extends Type {
+    constructor(public elementType: Type) {
+        super();
+    }
+
+    toString(): string {
+        return `const ${this.elementType.toString()}&`;
+    }
+}
+
 class ScopedType extends Type {
     constructor(public scope: string, public name: string) {
         super();
@@ -123,4 +133,4 @@ class ScopedType extends Type {
     }
 }
 
-export { Type, ArrayType, TemplateType, PointerType, IntType, UnsignedIntType, FloatType, BooleanType, StringType, CharType, VoidType, FunctionType, AutoType, RefereceType, ScopedType };
+export { Type, ArrayType, TemplateType, PointerType, IntType, UnsignedIntType, FloatType, BooleanType, StringType, CharType, VoidType, FunctionType, AutoType, RefereceType, ConstRefType, ScopedType };
