@@ -25,7 +25,7 @@ double operator+(Undefined, const T&) {
     return NAN;
 }
 
-double operator+(Undefined, Undefined) {
+inline double operator+(Undefined, Undefined) {
     return NAN;
 }
 
@@ -39,7 +39,7 @@ double operator*(Undefined, const T&) {
     return NAN;
 }
 
-double operator*(Undefined, Undefined) {
+inline double operator*(Undefined, Undefined) {
     return NAN;
 }
 
@@ -178,7 +178,8 @@ public:
             if constexpr (std::is_same_v<T, Undefined>) {
                 return false;
             }
-            else if constexpr (IsObject<T>::value) {
+            else if constexpr (IsObject<T>::value || IsDynamicArray<T>::value) {
+                // Objects and DynamicArrays are always truthy (like JS objects).
                 return true;
             }
             else {
@@ -186,6 +187,14 @@ public:
             }
         }, value);
     }
+
+    // Typed accessor: extracts the T alternative directly.
+    // Throws std::bad_variant_access if T is not the active alternative.
+    template <typename T>
+    T& get() { return std::get<T>(value); }
+
+    template <typename T>
+    const T& get() const { return std::get<T>(value); }
 
     operator double() const {
         return std::visit([](const auto& arg) -> double {
@@ -208,6 +217,9 @@ public:
             if constexpr (std::is_same_v<T, std::string>) {
                 return arg;
             }
+            else if constexpr (std::is_same_v<T, Undefined>) {
+                return "undefined";
+            }
             else {
                 return std::to_string(arg);
             }
@@ -217,6 +229,19 @@ public:
     using ElementType = GetElementTypes<Types...>;
     ElementType operator[](size_t index) {
         return std::visit([index](auto& arg) -> ElementType {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (IsDynamicArray<T>::value || std::is_same_v<T, std::string>) {
+                return arg[index];
+            }
+            throw std::bad_variant_access();
+        }, value);
+    }
+
+    // Const overload — ConstElementType strips the reference from ElementType and adds
+    // const, so the type system enforces read-only access on const Union objects.
+    using ConstElementType = const std::remove_reference_t<ElementType>&;
+    ConstElementType operator[](size_t index) const {
+        return std::visit([index](const auto& arg) -> ConstElementType {
             using T = std::decay_t<decltype(arg)>;
             if constexpr (IsDynamicArray<T>::value || std::is_same_v<T, std::string>) {
                 return arg[index];
@@ -235,8 +260,8 @@ public:
         }, value);
     }
 
-    size_t size() {
-        return std::visit([](auto& arg) -> size_t {
+    size_t size() const {
+        return std::visit([](const auto& arg) -> size_t {
             using T = std::decay_t<decltype(arg)>;
             if constexpr (IsDynamicArray<T>::value || std::is_same_v<T, std::string>) {
                 return arg.size();
@@ -296,11 +321,11 @@ bool operator==(const T&, const Undefined&) {
     return false;
 }
 
-bool operator==(double n, const std::string& s) {
+inline bool operator==(double n, const std::string& s) {
     return s == std::to_string(n);
 }
 
-bool operator==(const std::string& s, double n) {
+inline bool operator==(const std::string& s, double n) {
     return n == s;
 }
 
@@ -331,6 +356,20 @@ double operator+(const Union<Types...>& u, int64_t n) {
 template <typename... Types>
 double operator+(const Union<Types...>& u, int32_t n) {
     return (double)u + n;
+}
+
+// JS-style string concatenation: "str" + union and union + "str"
+// Route through operator std::string() so the correct string representation
+// is produced rather than going via operator double() which throws for
+// non-numeric union alternatives.
+template <typename... Types>
+std::string operator+(const std::string& s, const Union<Types...>& u) {
+    return s + static_cast<std::string>(u);
+}
+
+template <typename... Types>
+std::string operator+(const Union<Types...>& u, const std::string& s) {
+    return static_cast<std::string>(u) + s;
 }
 
 
@@ -367,7 +406,7 @@ bool operator>(const T& lhs, const S& rhs) {
     return rhs < lhs;
 }
 
-std::ostream& operator<<(std::ostream& os, const Undefined&) {
+inline std::ostream& operator<<(std::ostream& os, const Undefined&) {
     return os << "undefined";
 }
 

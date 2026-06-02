@@ -25,14 +25,17 @@ export function generateCpp(graph: ir.Graph, config?: BackendConfig): string {
         const subfunction_type = (irTypeToCppType(subgraph.verifiedType!) as cppType.FunctionType);
         const subfunction_name = (subgraph.getStartVertex().inEdges[0].source as ir.StaticSymbolVertex).name;
 
-        const subfunction_declaration = new decl.FuncDecl(subfunction_type.returnType, subfunction_name, subfunction_type.parameters);
+        const paramTypes = subfunction_type.parameters.map((t, i) =>
+            config!.constRefParams.get(subfunction_name)?.has(i) ? new cppType.ConstRefType(t) : t
+        );
+        const subfunction_declaration = new decl.FuncDecl(subfunction_type.returnType, subfunction_name, paramTypes);
         out += subfunction_declaration.toString() + '\n';
     }
 
     out += '\n';
 
     for (const subgraph of graph.subgraphs) {
-        out += generateCpp(subgraph);
+        out += generateCpp(subgraph, config);
     }
     let function_name;
     if (graph.getStartVertex().inEdges.length > 0) {
@@ -42,7 +45,10 @@ export function generateCpp(graph: ir.Graph, config?: BackendConfig): string {
         function_name = 'main';
     }
     const function_type = (irTypeToCppType(graph.verifiedType!) as cppType.FunctionType);
-    const parameters = function_type.parameters.map((t, i) => new decl.ParamDecl(t, `p${i}`));
+    const parameters = function_type.parameters.map((t, i) => {
+        const type = config!.constRefParams.get(function_name)?.has(i) ? new cppType.ConstRefType(t) : t;
+        return new decl.ParamDecl(type, `p${i}`);
+    });
     const cpp_function = new decl.FuncDefDecl(function_type.returnType, function_name, parameters, new stmt.BlockStmt([]));
     const names = allocateCppNames(graph);
 
@@ -50,12 +56,17 @@ export function generateCpp(graph: ir.Graph, config?: BackendConfig): string {
         .filter(v => (v instanceof ir.DataVertex || v instanceof ir.CompoundVertex) && !(v instanceof ir.StaticSymbolVertex))
         .filter(v => !(v instanceof ir.ParameterVertex))
 
+    const constParamIndices = config!.constRefParams.get(function_name) ?? new Set<number>();
     const variableDeclarations = dataVertices
         .filter(v => !((v as ir.DataVertex).verifiedType! instanceof ir.VoidType) && !((v as ir.DataVertex).verifiedType! instanceof ir.FunctionType))
         .map(v => {
             let type = irTypeToCppType((v as ir.DataVertex).verifiedType!);
             if (v instanceof ir.LoadVertex && (v.verifiedType instanceof ir.DynamicArrayType || (v.verifiedType instanceof ir.UnionType && v.verifiedType.types.some(t => t instanceof ir.DynamicArrayType)))) {
-                type = new cppType.PointerType(type);
+                // If the load source is a const parameter, use const T* so the type
+                // system correctly reflects read-only access through the pointer.
+                const isFromConstParam = v.object instanceof ir.ParameterVertex &&
+                    constParamIndices.has((v.object as ir.ParameterVertex).position);
+                type = isFromConstParam ? new cppType.ConstPointerType(type) : new cppType.PointerType(type);
             }
             return new decl.VarDecl(type, names.get(v)!)
         });
