@@ -208,6 +208,9 @@ public:
             if constexpr (std::is_same_v<T, std::string>) {
                 return arg;
             }
+            else if constexpr (std::is_same_v<T, Undefined>) {
+                return "undefined";
+            }
             else {
                 return std::to_string(arg);
             }
@@ -344,6 +347,20 @@ double operator+(const Union<Types...>& u, int64_t n) {
 template <typename... Types>
 double operator+(const Union<Types...>& u, int32_t n) {
     return (double)u + n;
+}
+
+// JS-style string concatenation: "str" + union and union + "str"
+// Route through operator std::string() so the correct string representation
+// is produced rather than going via operator double() which throws for
+// non-numeric union alternatives.
+template <typename... Types>
+std::string operator+(const std::string& s, const Union<Types...>& u) {
+    return s + static_cast<std::string>(u);
+}
+
+template <typename... Types>
+std::string operator+(const Union<Types...>& u, const std::string& s) {
+    return static_cast<std::string>(u) + s;
 }
 
 
