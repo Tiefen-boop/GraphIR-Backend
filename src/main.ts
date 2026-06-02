@@ -56,12 +56,17 @@ export function generateCpp(graph: ir.Graph, config?: BackendConfig): string {
         .filter(v => (v instanceof ir.DataVertex || v instanceof ir.CompoundVertex) && !(v instanceof ir.StaticSymbolVertex))
         .filter(v => !(v instanceof ir.ParameterVertex))
 
+    const constParamIndices = config!.constRefParams.get(function_name) ?? new Set<number>();
     const variableDeclarations = dataVertices
         .filter(v => !((v as ir.DataVertex).verifiedType! instanceof ir.VoidType) && !((v as ir.DataVertex).verifiedType! instanceof ir.FunctionType))
         .map(v => {
             let type = irTypeToCppType((v as ir.DataVertex).verifiedType!);
             if (v instanceof ir.LoadVertex && (v.verifiedType instanceof ir.DynamicArrayType || (v.verifiedType instanceof ir.UnionType && v.verifiedType.types.some(t => t instanceof ir.DynamicArrayType)))) {
-                type = new cppType.PointerType(type);
+                // If the load source is a const parameter, use const T* so the type
+                // system correctly reflects read-only access through the pointer.
+                const isFromConstParam = v.object instanceof ir.ParameterVertex &&
+                    constParamIndices.has((v.object as ir.ParameterVertex).position);
+                type = isFromConstParam ? new cppType.ConstPointerType(type) : new cppType.PointerType(type);
             }
             return new decl.VarDecl(type, names.get(v)!)
         });

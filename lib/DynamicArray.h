@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <sstream>
+#include <ostream>
 
 template <typename T>
 class DynamicArray {
@@ -56,5 +57,19 @@ public:
 
     template <typename S>
     friend class DynamicArray;
+
+    template <typename U>
+    friend std::ostream& operator<<(std::ostream& os, const DynamicArray<U>& arr);
 };
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const DynamicArray<T>& arr) {
+    os << '[';
+    for (size_t i = 0; i < arr.data->size(); ++i) {
+        if (i > 0) os << ", ";
+        os << (*arr.data)[i];
+    }
+    os << ']';
+    return os;
+}
 
