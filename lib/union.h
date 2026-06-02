@@ -178,7 +178,8 @@ public:
             if constexpr (std::is_same_v<T, Undefined>) {
                 return false;
             }
-            else if constexpr (IsObject<T>::value) {
+            else if constexpr (IsObject<T>::value || IsDynamicArray<T>::value) {
+                // Objects and DynamicArrays are always truthy (like JS objects).
                 return true;
             }
             else {
@@ -186,6 +187,14 @@ public:
             }
         }, value);
     }
+
+    // Typed accessor: extracts the T alternative directly.
+    // Throws std::bad_variant_access if T is not the active alternative.
+    template <typename T>
+    T& get() { return std::get<T>(value); }
+
+    template <typename T>
+    const T& get() const { return std::get<T>(value); }
 
     operator double() const {
         return std::visit([](const auto& arg) -> double {
