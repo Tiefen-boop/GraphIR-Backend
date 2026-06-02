@@ -215,10 +215,21 @@ public:
     }
 
     using ElementType = GetElementTypes<Types...>;
-    // DynamicArray uses shared_ptr internally, so elements stay mutable through a const Union
-    // (reference semantics — the handle is const, not the pointed-to data).
-    ElementType operator[](size_t index) const {
-        return std::visit([index](const auto& arg) -> ElementType {
+    ElementType operator[](size_t index) {
+        return std::visit([index](auto& arg) -> ElementType {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (IsDynamicArray<T>::value || std::is_same_v<T, std::string>) {
+                return arg[index];
+            }
+            throw std::bad_variant_access();
+        }, value);
+    }
+
+    // Const overload — ConstElementType strips the reference from ElementType and adds
+    // const, so the type system enforces read-only access on const Union objects.
+    using ConstElementType = const std::remove_reference_t<ElementType>&;
+    ConstElementType operator[](size_t index) const {
+        return std::visit([index](const auto& arg) -> ConstElementType {
             using T = std::decay_t<decltype(arg)>;
             if constexpr (IsDynamicArray<T>::value || std::is_same_v<T, std::string>) {
                 return arg[index];
